@@ -10,6 +10,8 @@ import pygame
 import tkinter as tk
 import sys
 import socket
+import threading
+import json
 
 from assets.code.helperCode import *
 
@@ -159,6 +161,112 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         # =========================================================================================
 
 
+def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
+    
+    # Pygame inits
+    pygame.mixer.pre_init(44100, -16, 2, 2048)
+    pygame.init()
+
+    # Constants
+    WHITE = (255,255,255)
+    clock = pygame.time.Clock()
+    scoreFont = pygame.font.Font("./assets/fonts/pong-score.ttf", 32)
+    winFont = pygame.font.Font("./assets/fonts/visitor.ttf", 48)
+    pointSound = pygame.mixer.Sound("./assets/sounds/point.wav")
+    bounceSound = pygame.mixer.Sound("./assets/sounds/bounce.wav")
+
+    # Display objects
+    screen = pygame.display.set_mode((screenWidth, screenHeight))
+    winMessage = pygame.Rect(0,0,0,0)
+    topWall = pygame.Rect(-10,0,screenWidth+20, 10)
+    bottomWall = pygame.Rect(-10, screenHeight-10, screenWidth+20, 10)
+    centerLine = []
+    for i in range(0, screenHeight, 10):
+        centerLine.append(pygame.Rect((screenWidth/2)-5,i,5,5))
+
+    # Paddle properties and init
+    paddleHeight = 50
+    paddleWidth = 10
+    paddleStartPosY = (screenHeight/2)-(paddleHeight/2)
+    leftPaddle = Paddle(pygame.Rect(10,paddleStartPosY, paddleWidth, paddleHeight))
+    rightPaddle = Paddle(pygame.Rect(screenWidth-20, paddleStartPosY, paddleWidth, paddleHeight))
+
+    ball = Ball(pygame.Rect(screenWidth/2, screenHeight/2, 5, 5), -5, 0)
+
+    lScore = 0
+    rScore = 0
+
+    while True:
+        # Wiping the screen
+        screen.fill((0,0,0))
+
+        # See if spectator wants to leave
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+           
+
+        # =========================================================================================
+        # Receive updates from server
+        
+        
+        # =========================================================================================
+
+
+        # If the game is over, display the win message
+        if lScore > 4 or rScore > 4:
+            winText = "Player 1 Wins! " if lScore > 4 else "Player 2 Wins! "
+            textSurface = winFont.render(winText, False, WHITE, (0,0,0))
+            textRect = textSurface.get_rect()
+            textRect.center = ((screenWidth/2), screenHeight/2)
+            winMessage = screen.blit(textSurface, textRect)
+        else:
+
+            # ==== Ball Logic =====================================================================
+            ball.updatePos()
+
+            # If the ball makes it past the edge of the screen, update score, etc.
+            if ball.rect.x > screenWidth:
+                lScore += 1
+                pointSound.play()
+                ball.reset(nowGoing="left")
+            elif ball.rect.x < 0:
+                rScore += 1
+                pointSound.play()
+                ball.reset(nowGoing="right")
+                
+            # If the ball hits a paddle
+            if ball.rect.colliderect(leftPaddle.rect):
+                bounceSound.play()
+                ball.hitPaddle(leftPaddle.rect.center[1])
+            elif ball.rect.colliderect(rightPaddle.rect):
+                bounceSound.play()
+                ball.hitPaddle(rightPaddle.rect.center[1])
+                
+            # If the ball hits a wall
+            if ball.rect.colliderect(topWall) or ball.rect.colliderect(bottomWall):
+                bounceSound.play()
+                ball.hitWall()
+            
+            pygame.draw.rect(screen, WHITE, ball)
+            # ==== End Ball Logic =================================================================
+
+        # Drawing the dotted line in the center
+        for i in centerLine:
+            pygame.draw.rect(screen, WHITE, i)
+        
+        # Drawing the player's new location
+        for paddle in [leftPaddle, rightPaddle]:
+            pygame.draw.rect(screen, WHITE, paddle)
+
+        pygame.draw.rect(screen, WHITE, topWall)
+        pygame.draw.rect(screen, WHITE, bottomWall)
+        scoreRect = updateScore(lScore, rScore, screen, WHITE, scoreFont)
+        pygame.display.update([topWall, bottomWall, ball, leftPaddle, rightPaddle, scoreRect, winMessage])
+        clock.tick(60)
+
+
 
 
 # This is where you will connect to the server to get the info required to call the game loop.  Mainly
@@ -173,22 +281,29 @@ def joinServer(ip:str, port:str, errorLabel:tk.Label, app:tk.Tk) -> None:
     # errorLabel    A tk label widget, modify it's text to display messages to the user (example below)
     # app           The tk window object, needed to kill the window
     
+    
     # Create a socket and connect to the server
     # You don't have to use SOCK_STREAM, use what you think is best
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+    client.connect((ip, port))
     # Get the required information from your server (screen width, height & player paddle, "left or "right)
-
-
+    jsonData = client.recv(1024)
+    data = json.loads(jsonData)
+    screenWidth = data['width']
+    screenHeight = data['height']
+    position = data['role']
     # If you have messages you'd like to show the user use the errorLabel widget like so
-    errorLabel.config(text=f"Some update text. You input: IP: {ip}, Port: {port}")
+    #errorLabel.config(text=f"You input: IP: {ip}, Port: {port}")
     # You may or may not need to call this, depending on how many times you update the label
-    errorLabel.update()     
+    #errorLabel.update()     
 
     # Close this window and start the game with the info passed to you from the server
-    #app.withdraw()     # Hides the window (we'll kill it later)
-    #playGame(screenWidth, screenHeight, ("left"|"right"), client)  # User will be either left or right paddle
-    #app.quit()         # Kills the window
+    app.withdraw()     # Hides the window (we'll kill it later)
+    if (position == 'left' or position == 'right'):
+        playGame(screenWidth, screenHeight, position, client)  # User will be either left or right paddle
+    else:
+        watchGame(screenWidth, screenHeight, client)           # User will watch the game
+    app.quit()         # Kills the window
 
 
 # This displays the opening screen, you don't need to edit this (but may if you like)
@@ -222,9 +337,10 @@ def startScreen():
     app.mainloop()
 
 if __name__ == "__main__":
-    #startScreen()
+    startScreen()
     
     # Uncomment the line below if you want to play the game without a server to see how it should work
     # the startScreen() function should call playGame with the arguments given to it by the server this is
     # here for demo purposes only
-    playGame(640, 480,"left",socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+    #playGame(640, 480,"left",socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+
