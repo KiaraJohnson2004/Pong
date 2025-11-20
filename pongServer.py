@@ -36,7 +36,7 @@ def handle_client(conn, addr):
         roles[conn] = 'spectator'
     gameInfo['role'] = roles[conn]
     gameInfoStr = json.dumps(gameInfo)
-    conn.send(gameInfoStr)
+    conn.send(gameInfoStr.encode())
     while True:
         try:
             msg = conn.recv(1024)

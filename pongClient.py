@@ -1,11 +1,12 @@
 # =================================================================================================
-# Contributing Authors:	    <Anyone who touched the code>
-# Email Addresses:          <Your uky.edu email addresses>
-# Date:                     <The date the file was last edited>
-# Purpose:                  <How this file contributes to the project>
+# Contributing Authors:	    Kiara Johnson
+# Email Addresses:          kdjo267@uky.edu
+# Date:                     11/20/2-25
+# Purpose:                  Implement game logic, receive updates from server, write to server
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
 
+from telnetlib import GA
 import pygame
 import tkinter as tk
 import sys
@@ -14,6 +15,15 @@ import threading
 import json
 
 from assets.code.helperCode import *
+
+def checkServer(client: socket.socket):
+    try:
+        data = client.recv(1024)
+        if not data:
+            return None  
+        return data.decode()
+    except BlockingIOError:
+        return None  
 
 # This is the main game loop.  For the most part, you will not need to modify this.  The sections
 # where you should add to the code are marked.  Feel free to change any part of this project
@@ -61,6 +71,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
     rScore = 0
 
     sync = 0
+    gameState = {}
 
     while True:
         # Wiping the screen
@@ -82,11 +93,17 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
                 playerPaddleObj.moving = ""
 
         # =========================================================================================
-        # Your code here to send an update to the server on your paddle's information,
-        # where the ball is and the current score.
-        # Feel free to change when the score is updated to suit your needs/requirements
-        
-        
+        # Get updates from server
+        newGameState = checkServer(client)
+        if newGameState is not None:
+            newStateJSON = json.loads(newGameState)
+            oppBallX = newStateJSON['ballX']
+            oppBallY = newStateJSON['ballY']
+            oppX = newStateJSON['paddleX']
+            oppY = newStateJSON['paddleY']
+            oppLscore = newStateJSON['lScore']
+            oppRScore = newStateJSON['rScore']
+            oppSync = newGameState['sync']
         # =========================================================================================
 
         # Update the player paddle and opponent paddle's location on the screen
@@ -157,7 +174,17 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         # =========================================================================================
         # Send your server update here at the end of the game loop to sync your game with your
         # opponent's game
-
+        gameState['ballX'] = ball.rect.x
+        gameState['ballY'] = ball.rect.y
+        gameState['paddleX'] = playerPaddleObj.rect.x
+        gameState['paddleY'] = playerPaddleObj.rect.y
+        gameState['lScore'] = lScore
+        gameState['rScore'] = rScore
+        gameState['role'] = playerPaddle
+        gameState['sync'] = sync
+        gameStateStr = json.dumps(gameState)
+        client.send(gameStateStr.encode())
+        
         # =========================================================================================
 
 
@@ -195,7 +222,8 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
     lScore = 0
     rScore = 0
-
+    sync = 0
+    
     while True:
         # Wiping the screen
         screen.fill((0,0,0))
@@ -209,7 +237,17 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
         # =========================================================================================
         # Receive updates from server
-        
+        newGameState = checkServer(client)
+        if newGameState is not None:
+            newStateJSON = json.loads(newGameState)
+            curBallX = newStateJSON['ballX']
+            curBallY = newStateJSON['ballY']
+            curX = newStateJSON['paddleX']
+            curY = newStateJSON['paddleY']
+            curLscore = newStateJSON['lScore']
+            curRScore = newStateJSON['rScore']
+            curRole = newGameState['role']
+            curSync = newGameState['sync']
         
         # =========================================================================================
 
@@ -287,11 +325,13 @@ def joinServer(ip:str, port:str, errorLabel:tk.Label, app:tk.Tk) -> None:
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((ip, port))
     # Get the required information from your server (screen width, height & player paddle, "left or "right)
-    jsonData = client.recv(1024)
+    jsonData = client.recv(1024).decode()
     data = json.loads(jsonData)
     screenWidth = data['width']
     screenHeight = data['height']
     position = data['role']
+    
+    client.setblocking(False)
     # If you have messages you'd like to show the user use the errorLabel widget like so
     #errorLabel.config(text=f"You input: IP: {ip}, Port: {port}")
     # You may or may not need to call this, depending on how many times you update the label
