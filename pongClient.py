@@ -6,7 +6,7 @@
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
 
-from telnetlib import GA
+
 import pygame
 import tkinter as tk
 import sys
