@@ -97,10 +97,10 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_DOWN:
+                if event.key == pygame.K_DOWN or event.key == pygame.K_s:
                     playerPaddleObj.moving = "down"
 
-                elif event.key == pygame.K_UP:
+                elif event.key == pygame.K_UP or event.key == pygame.K_w:
                     playerPaddleObj.moving = "up"
 
             elif event.type == pygame.KEYUP:
@@ -219,6 +219,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
 
 def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     
+    clientBuffer = ""
     # Pygame inits
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.init()
@@ -249,34 +250,53 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
     ball = Ball(pygame.Rect(screenWidth/2, screenHeight/2, 5, 5), -5, 0)
 
+
     lScore = 0
     rScore = 0
-    sync = 0
-    
-    while True:
-        
 
-        # See if spectator wants to leave
+    sync = 0
+    gameState = {}
+
+    while True:
+        # Wiping the screen
+        screen.fill((0,0,0))
+
+        # Getting keypress events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-           
+
 
         # =========================================================================================
-        # Receive updates from server
-        newGameState = checkServer(client)
-        if newGameState is not None:
+        # Get updates from server
+        updates, clientBuffer = checkServer(client, clientBuffer)
+        for newGameState in updates:
             newStateJSON = json.loads(newGameState)
-            curBallX = newStateJSON['ballX']
-            curBallY = newStateJSON['ballY']
-            curX = newStateJSON['paddleX']
-            curY = newStateJSON['paddleY']
-            curLscore = newStateJSON['lScore']
-            curRScore = newStateJSON['rScore']
-            curRole = newGameState['role']
-            curSync = newGameState['sync']
-        
+
+
+            ballX = newStateJSON['ballX']
+            ballY = newStateJSON['ballY']
+            paddleX = newStateJSON['paddleX']
+            paddleY = newStateJSON['paddleY']
+            newLscore = newStateJSON['lScore']
+            newRScore = newStateJSON['rScore']
+            newSync = newStateJSON['sync']
+            side = newStateJSON['role']
+
+            if side == 'left':
+                leftPaddle.rect.x = paddleX
+                leftPaddle.rect.y = paddleY
+            elif side == 'right':
+                rightPaddle.rect.x = paddleX
+                rightPaddle.rect.y = paddleY
+
+            if newSync > sync:
+                ball.rect.x = ballX
+                ball.rect.y = ballY
+                lScore = newLscore
+                rScore = newRScore
+                sync = newSync
         # =========================================================================================
 
 
@@ -315,13 +335,8 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
                 bounceSound.play()
                 ball.hitWall()
             
-            
+            pygame.draw.rect(screen, WHITE, ball)
             # ==== End Ball Logic =================================================================
-
-        # Wiping the screen
-        screen.fill((0,0,0))
-
-        pygame.draw.rect(screen, WHITE, ball)
 
         # Drawing the dotted line in the center
         for i in centerLine:
@@ -334,8 +349,17 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
         pygame.draw.rect(screen, WHITE, topWall)
         pygame.draw.rect(screen, WHITE, bottomWall)
         scoreRect = updateScore(lScore, rScore, screen, WHITE, scoreFont)
-        pygame.display.update([topWall, bottomWall, ball, leftPaddle, rightPaddle, scoreRect, winMessage])
+        #pygame.display.update([topWall, bottomWall, ball, leftPaddle, rightPaddle, scoreRect, winMessage])
+        pygame.display.flip()
+
         clock.tick(60)
+        
+        # This number should be synchronized between you and your opponent.  If your number is larger
+        # then you are ahead of them in time, if theirs is larger, they are ahead of you, and you need to
+        # catch up (use their info)
+        # =========================================================================================
+        # Send your server update here at the end of the game loop to sync your game with your
+        # opponent's game
 
 
 
