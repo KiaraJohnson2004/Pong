@@ -1,7 +1,7 @@
 # =================================================================================================
 # Contributing Authors:	    Kiara Johnson
 # Email Addresses:          kdjo267@uky.edu
-# Date:                     11/20/2-25
+# Date:                     11/20/2025
 # Purpose:                  Implement game logic, receive updates from server, write to server
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
@@ -16,20 +16,34 @@ import json
 
 from assets.code.helperCode import *
 
-def checkServer(client: socket.socket):
+clientBuffer = ""
+
+def checkServer(client: socket.socket, buffer: str):
     try:
-        data = client.recv(1024)
+        data = client.recv(4096).decode()
         if not data:
-            return None  
+            return [], buffer  
+
+        buffer += data
+        updates = []
+
+        while "\n" in buffer:
+            msg, buffer = buffer.split("\n", 1)
+            if msg.strip():
+                updates.append(msg)
+
+        return updates, buffer
+
         return data.decode()
     except BlockingIOError:
-        return None  
+        return [], clientBuffer  
 
 # This is the main game loop.  For the most part, you will not need to modify this.  The sections
 # where you should add to the code are marked.  Feel free to change any part of this project
 # to suit your needs.
 def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.socket) -> None:
     
+    clientBuffer = ""
     # Pygame inits
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.init()
@@ -94,16 +108,28 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
 
         # =========================================================================================
         # Get updates from server
-        newGameState = checkServer(client)
-        if newGameState is not None:
+        updates, clientBuffer = checkServer(client, clientBuffer)
+        for newGameState in updates:
             newStateJSON = json.loads(newGameState)
+
+
             oppBallX = newStateJSON['ballX']
             oppBallY = newStateJSON['ballY']
             oppX = newStateJSON['paddleX']
             oppY = newStateJSON['paddleY']
             oppLscore = newStateJSON['lScore']
             oppRScore = newStateJSON['rScore']
-            oppSync = newGameState['sync']
+            oppSync = newStateJSON['sync']
+
+            opponentPaddleObj.rect.x = oppX
+            opponentPaddleObj.rect.y = oppY
+
+            if oppSync > sync:
+                ball.rect.x = oppBallX
+                ball.rect.y = oppBallY
+                lScore = oppLscore
+                rScore = oppRScore
+                sync = oppSync
         # =========================================================================================
 
         # Update the player paddle and opponent paddle's location on the screen
@@ -183,7 +209,8 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         gameState['role'] = playerPaddle
         gameState['sync'] = sync
         gameStateStr = json.dumps(gameState)
-        client.send(gameStateStr.encode())
+        client.send((gameStateStr + "\n").encode())
+
         
         # =========================================================================================
 
@@ -225,8 +252,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     sync = 0
     
     while True:
-        # Wiping the screen
-        screen.fill((0,0,0))
+        
 
         # See if spectator wants to leave
         for event in pygame.event.get():
@@ -287,8 +313,13 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
                 bounceSound.play()
                 ball.hitWall()
             
-            pygame.draw.rect(screen, WHITE, ball)
+            
             # ==== End Ball Logic =================================================================
+
+        # Wiping the screen
+        screen.fill((0,0,0))
+
+        pygame.draw.rect(screen, WHITE, ball)
 
         # Drawing the dotted line in the center
         for i in centerLine:
