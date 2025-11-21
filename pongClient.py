@@ -18,21 +18,21 @@ from assets.code.helperCode import *
 
 clientBuffer = ""
 
-def checkServer(client: socket.socket):
+def checkServer(client: socket.socket, buffer: str):
     try:
         data = client.recv(4096).decode()
         if not data:
-            return [], clientBuffer  
+            return [], buffer  
 
-        clientBuffer += data
+        buffer += data
         updates = []
 
-        while "\n" in recvBuffer:
-            msg, recvBuffer = recvBuffer.split("\n", 1)
+        while "\n" in buffer:
+            msg, buffer = buffer.split("\n", 1)
             if msg.strip():
                 updates.append(msg)
 
-        return updates, recvBuffer
+        return updates, buffer
 
         return data.decode()
     except BlockingIOError:
@@ -209,7 +209,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         gameState['role'] = playerPaddle
         gameState['sync'] = sync
         gameStateStr = json.dumps(gameState)
-        client.send(gameStateStr + "\n").encode()
+        client.send((gameStateStr + "\n").encode())
 
         
         # =========================================================================================
@@ -252,8 +252,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     sync = 0
     
     while True:
-        # Wiping the screen
-        screen.fill((0,0,0))
+        
 
         # See if spectator wants to leave
         for event in pygame.event.get():
@@ -314,8 +313,13 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
                 bounceSound.play()
                 ball.hitWall()
             
-            pygame.draw.rect(screen, WHITE, ball)
+            
             # ==== End Ball Logic =================================================================
+
+        # Wiping the screen
+        screen.fill((0,0,0))
+
+        pygame.draw.rect(screen, WHITE, ball)
 
         # Drawing the dotted line in the center
         for i in centerLine:

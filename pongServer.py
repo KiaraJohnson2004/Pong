@@ -38,7 +38,7 @@ def handle_client(conn, addr):
     gameInfoStr = json.dumps(gameInfo)
     while len(clients) < 2:
         continue
-    conn.send(gameInfoStr + "\n").encode()
+    conn.send((gameInfoStr + "\n").encode())
     while True:
         try:
             msg = conn.recv(1024)
