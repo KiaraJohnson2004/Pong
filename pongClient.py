@@ -17,8 +17,12 @@ import json
 from assets.code.helperCode import *
 
 clientBuffer = ""
+WHITE = (255,255,255)
+BG_COLOR = (24, 61, 26)
+RED = (255,0,0)
+BLUE = (0,0,255)
 
-def checkServer(client: socket.socket, buffer: str):
+def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
     try:
         data = client.recv(4096).decode()
         if not data:
@@ -34,7 +38,6 @@ def checkServer(client: socket.socket, buffer: str):
 
         return updates, buffer
 
-        return data.decode()
     except BlockingIOError:
         return [], clientBuffer  
 
@@ -89,7 +92,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
 
     while True:
         # Wiping the screen
-        screen.fill((0,0,0))
+        screen.fill(BG_COLOR)
 
         # Getting keypress events
         for event in pygame.event.get():
@@ -144,7 +147,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         # If the game is over, display the win message
         if lScore > 4 or rScore > 4:
             winText = "Player 1 Wins! " if lScore > 4 else "Player 2 Wins! "
-            textSurface = winFont.render(winText, False, WHITE, (0,0,0))
+            textSurface = winFont.render(winText, False, WHITE, BG_COLOR)
             textRect = textSurface.get_rect()
             textRect.center = ((screenWidth/2), screenHeight/2)
             winMessage = screen.blit(textSurface, textRect)
@@ -184,8 +187,8 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
             pygame.draw.rect(screen, WHITE, i)
         
         # Drawing the player's new location
-        for paddle in [playerPaddleObj, opponentPaddleObj]:
-            pygame.draw.rect(screen, WHITE, paddle)
+        pygame.draw.rect(screen, RED, leftPaddle)
+        pygame.draw.rect(screen, BLUE, rightPaddle)
 
         pygame.draw.rect(screen, WHITE, topWall)
         pygame.draw.rect(screen, WHITE, bottomWall)
@@ -225,7 +228,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     pygame.init()
 
     # Constants
-    WHITE = (255,255,255)
+    
     clock = pygame.time.Clock()
     scoreFont = pygame.font.Font("./assets/fonts/pong-score.ttf", 32)
     winFont = pygame.font.Font("./assets/fonts/visitor.ttf", 48)
@@ -259,7 +262,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
     while True:
         # Wiping the screen
-        screen.fill((0,0,0))
+        screen.fill(BG_COLOR)
 
         # Getting keypress events
         for event in pygame.event.get():
@@ -303,7 +306,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
         # If the game is over, display the win message
         if lScore > 4 or rScore > 4:
             winText = "Player 1 Wins! " if lScore > 4 else "Player 2 Wins! "
-            textSurface = winFont.render(winText, False, WHITE, (0,0,0))
+            textSurface = winFont.render(winText, False, WHITE, BG_COLOR)
             textRect = textSurface.get_rect()
             textRect.center = ((screenWidth/2), screenHeight/2)
             winMessage = screen.blit(textSurface, textRect)
@@ -343,8 +346,9 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
             pygame.draw.rect(screen, WHITE, i)
         
         # Drawing the player's new location
-        for paddle in [leftPaddle, rightPaddle]:
-            pygame.draw.rect(screen, WHITE, paddle)
+        pygame.draw.rect(screen, RED, leftPaddle)
+        pygame.draw.rect(screen, BLUE, rightPaddle)
+            
 
         pygame.draw.rect(screen, WHITE, topWall)
         pygame.draw.rect(screen, WHITE, bottomWall)
@@ -404,7 +408,7 @@ def joinServer(ip:str, port:str, errorLabel:tk.Label, app:tk.Tk) -> None:
 
 
 # This displays the opening screen, you don't need to edit this (but may if you like)
-def startScreen():
+def startScreen() -> None:
     app = tk.Tk()
     app.title("Server Info")
 
