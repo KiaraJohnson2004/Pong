@@ -391,7 +391,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
         for newGameState in updates:
             newStateJSON = json.loads(newGameState)
             # new game starting
-            if 'rematch' in newGameState and newGameState['rematch']:
+            if 'rematch' in newStateJSON and newStateJSON['rematch']:
                 lScore = 0
                 rScore = 0
                 sync = 0
