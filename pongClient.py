@@ -7,8 +7,6 @@
 # =================================================================================================
 
 
-from math import remainder
-from os import curdir
 import pygame
 import tkinter as tk
 import sys
