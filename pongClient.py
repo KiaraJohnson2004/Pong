@@ -66,6 +66,18 @@ def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
 # This is the main game loop.  For the most part, you will not need to modify this.  The sections
 # where you should add to the code are marked.  Feel free to change any part of this project
 # to suit your needs.
+# =====================================================================
+# Author: Kiara Johnson
+# Purpose: Run one full game instance through handling of user input,
+#          performance of game logic, state transition, and display of
+#          output.
+# Pre:     The client socket must be connected and non-blocking.
+#          screenWidth and screenHeight must match the server-provided
+#          dimensions. playerPaddle must be "left" or "right".
+# Post:    Sends continuous game state updates to the server.
+#          Returns only when the user quits the window.   
+# =====================================================================
+
 def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.socket) -> None:
     
     clientBuffer = ""   # buffer used for checking server
@@ -332,7 +344,6 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
 # Post: Continuously displays the latest server game state until the user
 #       closes the window, then exits the program.
 # =====================================================================
-
 def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     
     clientBuffer = ""   # buffer for checking server
