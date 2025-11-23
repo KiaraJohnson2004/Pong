@@ -18,27 +18,36 @@ import json
 # clients are and take actions to resync the games
 
 clients = []  # list of connected clients
-roles = {}
+roles = {}    # dictionary mapping socket.socket to string, maps clients to position (left, right, spectator)
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
 
-gameInfo = {}
+gameInfo = {}   # dictionary to send each client the game information needed to run playGame or watchGame
 gameInfo['width'] = SCREEN_WIDTH
 gameInfo['height'] = SCREEN_HEIGHT
 
+ # =====================================================================
+# Author: Kiara Johnson
+# Purpose: Handle all communication with connected clients, receive
+#          game updates, and broadcast them to the correct players or
+#          spectators based on the grouping.
+# Pre:  Server socket must be established.
+# Post: Processes messages, updates shared game state, and relays updates
+#       to the appropriate clients. Removes the client if it disconnects.
+# =====================================================================
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr}")
-    if clients[0] == conn:
+    if clients[0] == conn:              # first client uses left paddle
         roles[conn] = 'left'
-    elif clients[1] == conn:
+    elif clients[1] == conn:            # second client uses right paddle
         roles[conn] = 'right'
     else:
-        roles[conn] = 'spectator'
+        roles[conn] = 'spectator'       # all other clients are spectators
     gameInfo['role'] = roles[conn]
-    gameInfoStr = json.dumps(gameInfo)
-    while len(clients) < 2:
+    gameInfoStr = json.dumps(gameInfo)  # stringifies gameInfo dictionary to be sent
+    while len(clients) < 2:             # don't send game information until there are enough players
         continue
-    conn.send((gameInfoStr + "\n").encode())
+    conn.send((gameInfoStr + "\n").encode())    # add newline to prevent json extra data error
     while True:
         try:
             msg = conn.recv(1024)
@@ -72,7 +81,7 @@ s.close()
 
 
 while True:
-    conn, addr = server.accept()
-    clients.append(conn)
-    thread = threading.Thread(target=handle_client, args=(conn, addr))
+    conn, addr = server.accept()    # accept new client
+    clients.append(conn)            # add new client to list of clients
+    thread = threading.Thread(target=handle_client, args=(conn, addr))  # use threads to handle multiple clients
     thread.start()

@@ -16,19 +16,33 @@ import json
 
 from assets.code.helperCode import *
 
-clientBuffer = ""
+clientBuffer = ""       # buffer to hold received updates
+# colors
 WHITE = (255,255,255)
 BG_COLOR = (24, 61, 26)
 RED = (255,0,0)
 BLUE = (0,0,255)
 
+isPlaying = False       # Boolean used to determine whether to run game loop
+
+
+# =====================================================================
+# Author: Kiara Johnson
+# Purpose: Read any available messages from the server, assemble them
+#          using a buffer, and return complete newline-terminated JSON
+#          messages to the caller.
+# Pre: The client socket must be connected and set to non-blocking mode.
+#      The buffer string passed in must contain any previously incomplete data.
+# Post: Returns a list of fully assembled messages and an updated buffer.
+#       Does not modify any global game state.
+# =====================================================================
 def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
-    try:
-        data = client.recv(4096).decode()
+    try:                                    # try to receive data from server
+        data = client.recv(4096).decode()       
         if not data:
             return [], buffer  
 
-        buffer += data
+        buffer += data                      # add new update to buffer
         updates = []
 
         while "\n" in buffer:
@@ -46,13 +60,13 @@ def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
 # to suit your needs.
 def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.socket) -> None:
     
-    clientBuffer = ""
+    global isPlaying    # use previously declared variable instead of creating a new local variable
+    clientBuffer = ""   # buffer used for checking server
     # Pygame inits
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.init()
 
     # Constants
-    WHITE = (255,255,255)
     clock = pygame.time.Clock()
     scoreFont = pygame.font.Font("./assets/fonts/pong-score.ttf", 32)
     winFont = pygame.font.Font("./assets/fonts/visitor.ttf", 48)
@@ -84,13 +98,15 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         opponentPaddleObj = leftPaddle
         playerPaddleObj = rightPaddle
 
+    # game state information
     lScore = 0
     rScore = 0
-
     sync = 0
     gameState = {}
+    isPlaying = True
 
-    while True:
+    # game loop
+    while isPlaying: 
         # Wiping the screen
         screen.fill(BG_COLOR)
 
@@ -115,7 +131,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         for newGameState in updates:
             newStateJSON = json.loads(newGameState)
 
-
+            # parse received information
             oppBallX = newStateJSON['ballX']
             oppBallY = newStateJSON['ballY']
             oppX = newStateJSON['paddleX']
@@ -124,9 +140,11 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
             oppRScore = newStateJSON['rScore']
             oppSync = newStateJSON['sync']
 
+            # update opponent's paddle coordinates regardless of sync
             opponentPaddleObj.rect.x = oppX
             opponentPaddleObj.rect.y = oppY
 
+            # update ball position, scores, and sync only if received sync is greater than client's sync
             if oppSync > sync:
                 ball.rect.x = oppBallX
                 ball.rect.y = oppBallY
@@ -147,10 +165,12 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         # If the game is over, display the win message
         if lScore > 4 or rScore > 4:
             winText = "Player 1 Wins! " if lScore > 4 else "Player 2 Wins! "
-            textSurface = winFont.render(winText, False, WHITE, BG_COLOR)
+            winColor = RED if lScore > 4 else BLUE
+            textSurface = winFont.render(winText, False, winColor, BG_COLOR)
             textRect = textSurface.get_rect()
             textRect.center = ((screenWidth/2), screenHeight/2)
             winMessage = screen.blit(textSurface, textRect)
+            isPlaying = False
         else:
 
             # ==== Ball Logic =====================================================================
@@ -205,6 +225,8 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         # =========================================================================================
         # Send your server update here at the end of the game loop to sync your game with your
         # opponent's game
+
+        # pack game state information into a dictionary
         gameState['ballX'] = ball.rect.x
         gameState['ballY'] = ball.rect.y
         gameState['paddleX'] = playerPaddleObj.rect.x
@@ -213,16 +235,39 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
         gameState['rScore'] = rScore
         gameState['role'] = playerPaddle
         gameState['sync'] = sync
-        gameStateStr = json.dumps(gameState)
+        gameStateStr = json.dumps(gameState)    # stringify dictionary and send to server
         client.send((gameStateStr + "\n").encode())
 
-        
+    clock.tick(60)
+    winText = "Press the space bar to play again"
+    textSurface = winFont.render(winText, False, WHITE, BG_COLOR)
+    textRect = textSurface.get_rect()
+    textRect.center = ((screenWidth/2), screenHeight/2)
+    winMessage = screen.blit(textSurface, textRect)
+    while isPlaying == False:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    # send signal to server to play again
+                    print("Play again")
         # =========================================================================================
 
+# =====================================================================
+# Author: Kiara Johnson
+# Purpose: Run a spectator view of the Pong game, receiving updates from
+#          the server and rendering the current game state without
+#          sending any inputs back.
+# Pre:  Client socket must be connected.
+# Post: Continuously displays the latest server game state until the user
+#       closes the window, then exits the program.
+# =====================================================================
 
 def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
     
-    clientBuffer = ""
+    clientBuffer = ""   # buffer for checking server
     # Pygame inits
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.init()
@@ -253,12 +298,11 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
     ball = Ball(pygame.Rect(screenWidth/2, screenHeight/2, 5, 5), -5, 0)
 
-
+    # game state information
     lScore = 0
     rScore = 0
-
-    sync = 0
-    gameState = {}
+    sync = 0    # used to ensure client is up-to-date, won't be sent to server
+    
 
     while True:
         # Wiping the screen
@@ -273,11 +317,11 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
         # =========================================================================================
         # Get updates from server
-        updates, clientBuffer = checkServer(client, clientBuffer)
+        updates, clientBuffer = checkServer(client, clientBuffer)  # get an update from the server
         for newGameState in updates:
             newStateJSON = json.loads(newGameState)
 
-
+            # parse received information
             ballX = newStateJSON['ballX']
             ballY = newStateJSON['ballY']
             paddleX = newStateJSON['paddleX']
@@ -287,6 +331,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
             newSync = newStateJSON['sync']
             side = newStateJSON['role']
 
+            # update paddle coordinates regardless of sync
             if side == 'left':
                 leftPaddle.rect.x = paddleX
                 leftPaddle.rect.y = paddleY
@@ -294,6 +339,7 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
                 rightPaddle.rect.x = paddleX
                 rightPaddle.rect.y = paddleY
 
+            # update ball coordinates, score, and sync only if received sync is greater than client's sync
             if newSync > sync:
                 ball.rect.x = ballX
                 ball.rect.y = ballY
@@ -306,7 +352,8 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
         # If the game is over, display the win message
         if lScore > 4 or rScore > 4:
             winText = "Player 1 Wins! " if lScore > 4 else "Player 2 Wins! "
-            textSurface = winFont.render(winText, False, WHITE, BG_COLOR)
+            winColor = RED if lScore > 4 else BLUE
+            textSurface = winFont.render(winText, False, winColor, BG_COLOR)
             textRect = textSurface.get_rect()
             textRect.center = ((screenWidth/2), screenHeight/2)
             winMessage = screen.blit(textSurface, textRect)
@@ -358,12 +405,6 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
 
         clock.tick(60)
         
-        # This number should be synchronized between you and your opponent.  If your number is larger
-        # then you are ahead of them in time, if theirs is larger, they are ahead of you, and you need to
-        # catch up (use their info)
-        # =========================================================================================
-        # Send your server update here at the end of the game loop to sync your game with your
-        # opponent's game
 
 
 
