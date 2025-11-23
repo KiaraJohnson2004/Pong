@@ -1,7 +1,7 @@
 # =================================================================================================
 # Contributing Authors:	    Kiara Johnson
 # Email Addresses:          kdjo267@uky.edu
-# Date:                     11/19/2025
+# Date:                     11/23/2025
 # Purpose:                  Relays game state updates between clients
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
@@ -19,6 +19,7 @@ import json
 
 clients = []  # list of connected clients
 roles = {}    # dictionary mapping socket.socket to string, maps clients to position (left, right, spectator)
+rematchRequests = {'left': False, 'right': False}
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
 
@@ -49,16 +50,47 @@ def handle_client(conn, addr):
         continue
     conn.send((gameInfoStr + "\n").encode())    # add newline to prevent json extra data error
     while True:
+        # receive messages from clients
         try:
-            msg = conn.recv(1024)
-            if not msg:  # client disconnected
+            raw = conn.recv(1024)
+            if not raw:
                 break
-            # broadcast message to everyone except the sender
-            for c in clients:
-                if c != conn:
-                    c.send(msg)
+        
+            try:
+                data = json.loads(raw.decode().strip())
+            except:
+                continue
+
+            # player wants to play again
+            if 'rematch' in data:
+                playerRole = roles[conn]
+
+                # record their request
+                rematchRequests[playerRole] = True
+
+                # wait until both players want to play again
+                if rematchRequests['left'] and rematchRequests['right']:
+                
+                    # send approval to both
+                    approval = json.dumps({"rematch": True}) + "\n"
+                    for c in clients:
+                        c.send(approval.encode())
+
+                    # reset flags for next round
+                    rematchRequests['left'] = False
+                    rematchRequests['right'] = False
+
+                continue
+
+            else:
+                # game update
+                for c in clients:
+                    if c != conn:
+                        c.send((json.dumps(data) + "\n").encode())
+
         except:
             break
+
     # cleanup after disconnect
     conn.close()
     if conn in clients:
