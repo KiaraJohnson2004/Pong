@@ -1,6 +1,6 @@
 # =================================================================================================
-# Contributing Authors:	    Kiara Johnson, Andy Zheng
-# Email Addresses:          kdjo267@uky.edu, azh242@uky.edu
+# Contributing Authors:	    Kiara Johnson, Andy Zheng, Owen Louis
+# Email Addresses:          kdjo267@uky.edu, azh242@uky.edu, omlo227@uky.edu
 # Date:                     11/25/2025
 # Purpose:                  Implement game logic, receive updates from server, write to server
 # Misc:                     <Not Required.  Anything else you might want to include>
@@ -60,7 +60,7 @@ def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
         return updates, buffer
 
     except BlockingIOError:
-        return [], clientBuffer  
+        return [], buffer  
 
 # =====================================================================
 # Author: Andy Zheng
