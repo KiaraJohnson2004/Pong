@@ -1,7 +1,7 @@
 # =================================================================================================
-# Contributing Authors:	    Kiara Johnson
-# Email Addresses:          kdjo267@uky.edu
-# Date:                     11/23/2025
+# Contributing Authors:	    Kiara Johnson, Andy Zheng
+# Email Addresses:          kdjo267@uky.edu, azh242@uky.edu
+# Date:                     11/25/2025
 # Purpose:                  Implement game logic, receive updates from server, write to server
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
@@ -11,7 +11,6 @@ import pygame
 import tkinter as tk
 import sys
 import socket
-import threading
 import json
 from enum import Enum
 
@@ -62,6 +61,121 @@ def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
 
     except BlockingIOError:
         return [], clientBuffer  
+
+# Display role assignment screen
+# Displays a popup screen showing the player which side they are assigned to
+# It then waits for server signal that both players are connected before starting
+def showRoleScreen(role: str, app: tk.Tk, client: socket.socket) -> None:
+    # Create new window for role display
+    roleWindow = tk.Toplevel(app)
+    roleWindow.title("Player Assignment")
+    roleWindow.geometry("400x300")
+    
+    # Role-specific colors and text
+    if role == "left":
+        bg_color = "#ffcccc"  # Light red
+        role_text = "You are Player 1 (LEFT)"
+        color_text = "RED Paddle"
+        controls = "Controls: W/UP (move up), S/DOWN (move down)"
+    elif role == "right":
+        bg_color = "#ccccff"  # Light blue
+        role_text = "You are Player 2 (RIGHT)"
+        color_text = "BLUE Paddle"
+        controls = "Controls: W/UP (move up), S/DOWN (move down)"
+    else:  # spectator
+        bg_color = "#f0f0f0"  # Light gray
+        role_text = "You are a SPECTATOR"
+        color_text = "Watch the game!"
+        controls = "Enjoy the match!"
+    
+    roleWindow.configure(bg=bg_color)
+    
+    # Title label
+    titleLabel = tk.Label(
+        roleWindow, 
+        text=role_text,
+        font=("Arial", 24, "bold"),
+        bg=bg_color,
+        fg="black"
+    )
+    titleLabel.pack(pady=20)
+    
+    # Color/role description
+    colorLabel = tk.Label(
+        roleWindow,
+        text=color_text,
+        font=("Arial", 16),
+        bg=bg_color,
+        fg="black"
+    )
+    colorLabel.pack(pady=10)
+    
+    # Controls text
+    controlsLabel = tk.Label(
+        roleWindow,
+        text=controls,
+        font=("Arial", 12),
+        bg=bg_color,
+        fg="black"
+    )
+    controlsLabel.pack(pady=10)
+    
+    # Waiting message
+    waitLabel = tk.Label(
+        roleWindow,
+        text="Waiting for other player to connect...",
+        font=("Arial", 10, "italic"),
+        bg=bg_color,
+        fg="gray"
+    )
+    waitLabel.pack(pady=20)
+    
+    # Countdown label (hidden initially)
+    countdownLabel = tk.Label(
+        roleWindow,
+        text="",
+        font=("Arial", 16, "bold"),
+        bg=bg_color,
+        fg="black"
+    )
+    countdownLabel.pack(pady=10)
+    
+    # Update the window
+    roleWindow.update()
+    
+    # Function to check for server start signal
+    def check_for_start():
+        try:
+            data = client.recv(1024).decode()
+            if data:
+                msg = json.loads(data.strip())
+                if 'start_game' in msg and msg['start_game']:
+                    # Both players connected, start countdown
+                    waitLabel.config(text="Both players connected!")
+                    countdown(3)
+                    return
+        except BlockingIOError:
+            pass
+        except:
+            pass
+        
+        # Check again in 100ms
+        roleWindow.after(100, check_for_start)
+    
+    # Countdown function
+    def countdown(seconds):
+        if seconds > 0:
+            countdownLabel.config(text=f"Starting in {seconds}...")
+            roleWindow.after(1000, lambda: countdown(seconds - 1))
+        else:
+            countdownLabel.config(text="GO!")
+            roleWindow.after(500, roleWindow.destroy)
+    
+    # Start checking for server signal
+    check_for_start()
+    
+    # Keep window open until countdown finishes
+    roleWindow.wait_window()
 
 # This is the main game loop.  For the most part, you will not need to modify this.  The sections
 # where you should add to the code are marked.  Feel free to change any part of this project
@@ -523,7 +637,10 @@ def joinServer(ip:str, port:str, errorLabel:tk.Label, app:tk.Tk) -> None:
     screenWidth = data['width']
     screenHeight = data['height']
     position = data['role']
-    
+
+    # Show the role assignment beofre going into the game
+    showRoleScreen(position, app, client)
+
     client.setblocking(False)
     # If you have messages you'd like to show the user use the errorLabel widget like so
     #errorLabel.config(text=f"You input: IP: {ip}, Port: {port}")
