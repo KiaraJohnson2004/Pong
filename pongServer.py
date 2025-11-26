@@ -1,7 +1,7 @@
 # =================================================================================================
-# Contributing Authors:	    Kiara Johnson
-# Email Addresses:          kdjo267@uky.edu
-# Date:                     11/23/2025
+# Contributing Authors:	    Kiara Johnson, Andy Zheng
+# Email Addresses:          kdjo267@uky.edu, azh242@uky.edu
+# Date:                     11/25/2025
 # Purpose:                  Relays game state updates between clients
 # Misc:                     <Not Required.  Anything else you might want to include>
 # =================================================================================================
@@ -9,6 +9,7 @@
 import socket
 import threading
 import json
+import time
 
 # Use this file to write your server logic
 # You will need to support at least two clients
@@ -20,6 +21,7 @@ import json
 clients = []  # list of connected clients
 roles = {}    # dictionary mapping socket.socket to string, maps clients to position (left, right, spectator)
 rematchRequests = {'left': False, 'right': False}
+bothPlayersConnected = False # Track when both players have joined
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
 
@@ -28,7 +30,7 @@ gameInfo['width'] = SCREEN_WIDTH
 gameInfo['height'] = SCREEN_HEIGHT
 
  # =====================================================================
-# Author: Kiara Johnson
+# Author: Kiara Johnson, Andy Zheng
 # Purpose: Handle all communication with connected clients, receive
 #          game updates, and broadcast them to the correct players or
 #          spectators based on the grouping.
@@ -37,18 +39,27 @@ gameInfo['height'] = SCREEN_HEIGHT
 #       to the appropriate clients. Removes the client if it disconnects.
 # =====================================================================
 def handle_client(conn, addr):
+    global bothPlayersConnected
+
     print(f"[NEW CONNECTION] {addr}")
     if clients[0] == conn:              # first client uses left paddle
         roles[conn] = 'left'
     elif clients[1] == conn:            # second client uses right paddle
         roles[conn] = 'right'
+        bothPlayersConnected = True
     else:
         roles[conn] = 'spectator'       # all other clients are spectators
     gameInfo['role'] = roles[conn]
     gameInfoStr = json.dumps(gameInfo)  # stringifies gameInfo dictionary to be sent
-    while len(clients) < 2:             # don't send game information until there are enough players
-        continue
-    conn.send((gameInfoStr + "\n").encode())    # add newline to prevent json extra data error
+    conn.send((gameInfoStr + "\n").encode())
+    while not bothPlayersConnected:
+        time.sleep(0.1)
+     # Send start signal to begin countdown
+    startSignal = json.dumps({"start_game": True}) + "\n"
+    conn.send(startSignal.encode())
+    
+    # Wait 3 seconds for countdown on client side
+    time.sleep(3.5)
     while True:
         # receive messages from clients
         try:
@@ -103,7 +114,7 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.bind(("0.0.0.0", 65432))   # listen on all interfaces, port 65432
 server.listen()
 
-print("Server listening on port 65432...")
+print("Server listening on port 65432 ...")
 
 # print current IP for clients to use in command line
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
