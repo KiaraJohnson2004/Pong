@@ -62,9 +62,17 @@ def checkServer(client: socket.socket, buffer: str) -> tuple[list[str], str]:
     except BlockingIOError:
         return [], clientBuffer  
 
-# Display role assignment screen
-# Displays a popup screen showing the player which side they are assigned to
-# It then waits for server signal that both players are connected before starting
+# =====================================================================
+# Author: Andy Zheng
+# Purpose: Display a screen showing the player which side they've been 
+#          assigned to. Waits for server signal that both players are 
+#          connected before starting countdown.
+# Pre: The client socket must be connected. Role must be "left", "right",
+#      or "spectator". The tk app window must exist.
+# Post: Displays role assignment screen, waits for start signal from 
+#       server, shows 3-second countdown, then closes window to begin game.
+# =====================================================================
+
 def showRoleScreen(role: str, app: tk.Tk, client: socket.socket) -> None:
     # Create new window for role display
     roleWindow = tk.Toplevel(app)
@@ -107,7 +115,7 @@ def showRoleScreen(role: str, app: tk.Tk, client: socket.socket) -> None:
         font=("Arial", 16),
         bg=bg_color,
         fg="black"
-    )
+    ) 
     colorLabel.pack(pady=10)
     
     # Controls text
