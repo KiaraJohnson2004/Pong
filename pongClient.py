@@ -352,7 +352,6 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
             pygame.draw.rect(screen, WHITE, topWall)
             pygame.draw.rect(screen, WHITE, bottomWall)
             scoreRect = updateScore(lScore, rScore, screen, WHITE, scoreFont)
-            #pygame.display.update([topWall, bottomWall, ball, leftPaddle, rightPaddle, scoreRect, winMessage])
             pygame.display.flip()
 
             clock.tick(60)
@@ -613,7 +612,6 @@ def watchGame(screenWidth:int, screenHeight:int, client:socket.socket) -> None:
         pygame.draw.rect(screen, WHITE, topWall)
         pygame.draw.rect(screen, WHITE, bottomWall)
         scoreRect = updateScore(lScore, rScore, screen, WHITE, scoreFont)
-        #pygame.display.update([topWall, bottomWall, ball, leftPaddle, rightPaddle, scoreRect, winMessage])
         pygame.display.flip()
 
         clock.tick(60)
