@@ -280,7 +280,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
                 oppX = newStateJSON['paddleX']
                 oppY = newStateJSON['paddleY']
                 oppLscore = newStateJSON['lScore']
-                oppRScore = newStateJSON['rScore']
+                oppRscore = newStateJSON['rScore']
                 oppSync = newStateJSON['sync']
 
                 # update opponent's paddle coordinates regardless of sync
@@ -292,7 +292,7 @@ def playGame(screenWidth:int, screenHeight:int, playerPaddle:str, client:socket.
                     ball.rect.x = oppBallX
                     ball.rect.y = oppBallY
                     lScore = oppLscore
-                    rScore = oppRScore
+                    rScore = oppRscore
                     sync = oppSync
             # =========================================================================================
 
